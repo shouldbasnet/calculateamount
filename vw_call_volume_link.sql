@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------#
+/*-------------------------------------------------------------------*/
 create or replace view vw_call_volume_link as
 select distinct  
 	concat(case when vrp.is_vbr='yes' then 'vbr' else v.id end,'-',vrp.rate_profile_detail_id,'-',c.id,'-',o.id,'-',s.id) as uniqueid,
@@ -62,6 +62,5 @@ and
 and
 	vrp.tier_detail_id=t.id
 where 
-    v.calculate_flag
-	;
-#-------------------------------------------------------------------#
+    v.calculate_flag;
+/*-------------------------------------------------------------------*/
