@@ -1,22 +1,23 @@
 /*-------------------------------------------------------------------*/
 create or replace view vw_call_volume_link as
 select distinct  
-	concat(case when vrp.is_vbr='yes' then 'vbr' else v.id end,'-',vrp.rate_profile_detail_id,'-',c.id,'-',o.id,'-',s.id) as uniqueid,
-    v.id as callvolumeid,
+	v.id as uniqueid,
 	v.call_duration as duration,
-    c.id as contractid,
-    o.id as operatorid,
+	c.id as contractid,
+	o.id as operatorid,
 	o.code as operator_code,
-    t.id as tierid,
+	t.id as tierid,
 	t.tier_code as tier_code,
-    s.id as serviceid,
+	s.id as serviceid,
 	s.code as service_code,
-    mx.id as recentcontractid,
+	mx.id as recentcontractid,
 	vbr.id as vbrid,
-	vbr.product_id as product_id,
+	p.code as product_code,
 	ifnull(vrp.is_vbr,'no') as is_vbr,
 	vrp.rate_profile_detail_id,
-	vrp.rate_type 
+	vrp.rate_type,
+	v.start_date,
+	v.end_date
 from 
     ntc.data_call_volumes v
 left join
@@ -41,10 +42,6 @@ and
     o.id= c.operator_id
 and
     s.id=c.service_id
-left join	
-	vbr_combinations vbr
-on	
-	t.id= vbr.tier_detail_id
 left join
     vw_contract_recent mx
 on
@@ -61,6 +58,16 @@ and
 	vrp.contract_id= coalesce(c.id, mx.id)
 and
 	vrp.tier_detail_id=t.id
+left join	
+	vbr_combinations vbr
+on	
+	t.id= vbr.tier_detail_id
+and
+	vrp.rate_profile_detail_id=vbr.rate_profile_detail_id
+left join
+	products p
+on
+	vbr.product_id=p.id
 where 
     v.calculate_flag;
 /*-------------------------------------------------------------------*/

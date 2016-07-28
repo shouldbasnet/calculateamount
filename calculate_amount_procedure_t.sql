@@ -36,12 +36,12 @@ from vw_call_volume_link group by uniqueid, rate_type, is_vbr; */
 	declare maincursor cursor for 
 		select
 		group_concat(uniqueid separator ',') as uniqueid, 
-		group_concat(tier_code SEPARATOR '-') as tier_code,
+		group_concat(tier_code separator '-') as tier_code,
 		operator_code, 
 		service_code,
-		product_id,
-		start_date,
-		end_date,
+		product_code,
+		date_format(start_date, '%d/%m/%Y') as start_date,
+		date_format(end_date, '%d/%m/%Y') as end_date,
 		sum(duration) as duration,
 		rate_profile_detail_id, 
 		rate_type, 
@@ -51,9 +51,9 @@ from vw_call_volume_link group by uniqueid, rate_type, is_vbr; */
 	group by 
 		operator_code, 
 		service_code,
-		product_id,
-		start_date,
-		end_date,
+		product_code,
+		date_format(start_date, '%d/%m/%Y'),
+		date_format(end_date, '%d/%m/%Y'),
 		rate_profile_detail_id, 
 		rate_type, 
 		is_vbr;
@@ -73,7 +73,7 @@ if done then
     leave notvbr_loop;
 end if;
 /*----------------------------------------------------------------------------------*/
-set @v_query= concat('update calculated_details_t set deleted_at=sysdate() where uniqueid =''',v_uniqueid,''' and deleted_at is null');
+set @v_query= concat('update data_final_details_t set deleted_at=sysdate() where uniqueid =''',v_uniqueid,''' and deleted_at is null');
 prepare stmt from @v_query;
 execute stmt;
 deallocate prepare stmt;
@@ -88,7 +88,10 @@ fetch cur_calc into v_ceiling, v_rate, v_amount, v_hybrid_type;
     leave notvbr_loop;
 	end if;	
     
-	set @v_query= concat('insert into calculated_details_t values(''',v_uniqueid,''',''',v_rate_type,''',', ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',v_amount,',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',null)');
+/*	set @v_query= concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_rate_type,''',', ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',v_amount,',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',null)'); */
+
+	set @v_query=concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_tier_code,''',''',v_rate_type,''',',ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',ifnull(v_callduration,0),',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',''',v_operator_code,''',''',v_service_code,''',''',v_product_id,''',str_to_date(''',v_start_date,''',''%d/%m/%Y''),str_to_date(''',v_end_date,''',''%d/%m/%Y''), null)');
+
 	insert into query_log values(v_uniqueid, @v_query, sysdate()); 
 	prepare stmt from @v_query;
 	execute stmt;
@@ -102,7 +105,8 @@ fetch cur_calc into v_ceiling, v_rate, v_amount, v_hybrid_type;
 		close cur_calc;
 		leave notvbr_loop;
 	end if;	
-	set @v_query= concat('insert into calculated_details_t values(''',v_uniqueid,''',''',v_rate_type,''',', ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',round(v_amount*v_rate,2),',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',null)');
+/*	set @v_query= concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_rate_type,''',', ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',round(v_amount*v_rate,2),',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',null)');*/
+	set @v_query=concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_tier_code,''',''',v_rate_type,''',',ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',ifnull(v_callduration,0),',''',ifnull(v_hybrid_type,'null'),''',',v_amount,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',''',v_operator_code,''',''',v_service_code,''',''',v_product_id,''',str_to_date(''',v_start_date,''',''%d/%m/%Y''),str_to_date(''',v_end_date,''',''%d/%m/%Y''), null)');
 
 	insert into query_log values(v_uniqueid, @v_query, sysdate());
 	prepare stmt from @v_query;
@@ -135,8 +139,10 @@ if v_rate_type='incremental' then
 
 		set lastceiling= v_ceiling;
 		if amountapplied>0 then
-			set @v_query= concat('insert into calculated_details_t values(''',v_uniqueid,''', ''',v_rate_type,''', ',v_ceiling,', ',v_rate,', ',callsapplied,', ''', v_hybrid_type,''', ',amountapplied,', sysdate(), ''',v_rateprofileid,''',''',v_is_vbr,''',null)');	
-			insert into query_log values(v_uniqueid, @v_query, sysdate());
+			/*		set @v_query= concat('insert into data_final_details_t values(''',v_uniqueid,''', ''',v_rate_type,''', ',v_ceiling,', ',v_rate,', ',callsapplied,', ''', v_hybrid_type,''', ',amountapplied,', sysdate(), ''',v_rateprofileid,''',''',v_is_vbr,''',null)');	*/
+			
+			set @v_query=concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_tier_code,''',''',v_rate_type,''',',ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',callsapplied,',''',ifnull(v_hybrid_type,'null'),''',',amountapplied,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',''',v_operator_code,''',''',v_service_code,''',''',v_product_id,''',str_to_date(''',v_start_date,''',''%d/%m/%Y''),str_to_date(''',v_end_date,''',''%d/%m/%Y''), null)');
+			insert into query_log values(v_uniqueid, @v_query, sysdate());				
 			prepare stmt from @v_query;
 			execute stmt;
 			commit;
@@ -201,7 +207,7 @@ if v_rate_type='hybrid' then
 	end if;
 /*----------------------------------*/
 	if amountapplied>0 then
-			set @v_query= concat('insert into calculated_details_t values(''',v_uniqueid,''', ''',v_rate_type,''', ',v_ceiling,', ',v_rate,', ',callsapplied,', ''', v_hybrid_type,''', ',amountapplied,', sysdate(), ''',v_rateprofileid,''',''',v_is_vbr,''',null)');
+			set @v_query=concat('insert into data_final_details_t values(''',v_uniqueid,''',''',v_tier_code,''',''',v_rate_type,''',',ifnull(v_ceiling,0),',',ifnull(v_rate,0),',',callsapplied,',''',ifnull(v_hybrid_type,'null'),''',',amountapplied,',sysdate(),''',v_rateprofileid,''',''',v_is_vbr,''',''',v_operator_code,''',''',v_service_code,''',''',v_product_id,''',str_to_date(''',v_start_date,''',''%d/%m/%Y''),str_to_date(''',v_end_date,''',''%d/%m/%Y''), null)');
 			insert into query_log values(v_uniqueid, @v_query, sysdate());
 			prepare stmt from @v_query;
 			execute stmt;
@@ -212,26 +218,25 @@ if v_rate_type='hybrid' then
 	end loop calc_hyb_loop;	
 end if;
 /*----------------------------------------------------------------------------------*/
-set @v_query= concat('delete from calculated_average_rate where uniqueid = ''',v_uniqueid,'''');
-prepare stmt from @v_query;
-execute stmt;
-commit;
-deallocate prepare stmt;
-/*----------------------------------*/
-set @v_query= concat(
-'insert into calculated_average_rate
-select a.callvolumeid as claimid, a.uniqueid, a.rate_type, sum(b.calculated_amount)/sum(b.callduration) as average_rate
-from vw_call_volume_link a
-left join
-calculated_details_t b on
-a.uniqueid=b.uniqueid and b.deleted_at is null where a.uniqueid=''',v_uniqueid,'''');	
-prepare stmt from @v_query;
-execute stmt;
-commit;
-deallocate prepare stmt; 
+set @v_query=null;
 /*----------------------------------*/
 end loop notvbr_loop;
 /*----------------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------------*/	
 end;
+/*
+insert into data_final_amount(billing_operator, billing_operator_name, event_duration_minutes, average_rate, total_amount, service_id, created_at, start_date, end_date)
+select a.operator_code, o.name, sum(callduration), round(sum(calculated_amount)/sum(callduration),2), sum(calculated_amount), service_code, calculated_at, start_date, end_date
+from data_final_details_t a
+left join
+operators o
+on a.operator_code=b.code
+group by a.operator_code, o.name, service_code, calculated_at, start_date, end_date;
+commit;
+
+update data_final_details_t a,data_final_amount b
+set a.data_final_id=b.id
+where a.billing_operator=b.operator_code and a.service_id=b.service_code and a.start_date=b.start_date and a.end_date=b.end_date;
+commit;
+*/
