@@ -222,7 +222,34 @@ set @v_query=null;
 /*----------------------------------*/
 end loop notvbr_loop;
 /*----------------------------------------------------------------------------------*/
-
+set @v_query='update data_final_amount a set a.deleted_at=sysdate()
+where concat(a.billing_operator,a.service_id,date_format(a.start_date,''%d%m%Y''),date_format(a.end_date,''%d%m%Y''))
+IN
+(select Concat(b.operator_code, b.service_code,date_format(b.start_date,''%d%m%Y''),date_format(b.end_date,''%d%m%Y'')) 
+from vw_call_volume_link b) and a.deleted_at is null';
+prepare stmt from @v_query;
+execute stmt;
+commit;
+deallocate prepare stmt;
+set @v_query=null;
+/*-------------------------------------------*/
+set @v_query='insert into data_final_amount(billing_operator, billing_operator_name, event_duration_minutes, average_rate, total_amount, service_id, created_at, start_date, end_date)
+select a.operator_code, o.name, sum(a.callduration), round(sum(a.calculated_amount)/sum(a.callduration),2), sum(a.calculated_amount), a.service_code, a.calculated_at, a.start_date, a.end_date
+from data_final_details_t a
+left join
+operators o
+on a.operator_code=o.code
+where a.deleted_at is null and 
+Concat(a.operator_code, a.service_code,date_format(a.start_date,''%d%m%Y''),date_format(a.end_date,''%d%m%Y''))
+in 
+(select Concat(v.operator_code,v.service_code,date_format(v.start_date,''%d%m%Y''),date_format(v.end_date,''%d%m%Y'')) 
+from vw_call_volume_link v)
+group by a.operator_code, o.name, a.service_code, a.calculated_at, a.start_date, a.end_date';
+prepare stmt from @v_query;
+execute stmt;
+commit;
+deallocate prepare stmt; 
+set @v_query=null;
 /*----------------------------------------------------------------------------------*/	
 end;
 /*
